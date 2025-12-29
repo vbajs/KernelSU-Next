@@ -3,6 +3,11 @@
 #include <linux/kobject.h>
 #include <linux/module.h>
 #include <linux/workqueue.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#include "setuid_hook.h"
+#include "sucompat.h"
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 #include "allowlist.h"
 #include "feature.h"
@@ -19,6 +24,7 @@ struct cred* ksu_cred;
 extern void __init ksu_lsm_hook_init(void);
 extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 					void *argv, void *envp, int *flags);
+#ifndef CONFIG_KSU_SUSFS
 extern int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 				    void *argv, void *envp, int *flags);
 int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
@@ -28,6 +34,7 @@ int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 	return ksu_handle_execveat_sucompat(fd, filename_ptr, argv, envp,
 					    flags);
 }
+#endif
 
 int __init kernelsu_init(void)
 {
@@ -50,7 +57,12 @@ int __init kernelsu_init(void)
 
 	ksu_supercalls_init();
 
+#ifndef CONFIG_KSU_SUSFS
 	ksu_syscall_hook_manager_init();
+#else
+	ksu_setuid_hook_init();
+	ksu_sucompat_init();
+#endif // #ifndef CONFIG_KSU_SUSFS
 
 	ksu_lsm_hook_init();
 
@@ -58,7 +70,13 @@ int __init kernelsu_init(void)
 
 	ksu_throne_tracker_init();
 
+#ifdef CONFIG_KSU_SUSFS
+	susfs_init();
+#endif // #ifdef CONFIG_KSU_SUSFS
+
+#ifndef CONFIG_KSU_SUSFS
 	ksu_ksud_init();
+#endif // #ifndef CONFIG_KSU_SUSFS
 
 	ksu_file_wrapper_init();
 
@@ -79,9 +97,11 @@ void kernelsu_exit(void)
 
 	ksu_observer_exit();
 
+#ifndef CONFIG_KSU_SUSFS
 	ksu_ksud_exit();
 
 	ksu_syscall_hook_manager_exit();
+#endif // #ifndef CONFIG_KSU_SUSFS
 
 	ksu_supercalls_exit();
 
